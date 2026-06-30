@@ -1223,6 +1223,13 @@ uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('dra
 uz.addEventListener('dragleave', () => uz.classList.remove('drag-over'));
 uz.addEventListener('drop', e => { e.preventDefault(); uz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) readCSVFile(e.dataTransfer.files[0]); });
 
+function decodeTexto(buffer) {
+  // Probar UTF-8 primero; si tiene caracteres inválidos (�), es Windows-1252/Latin1
+  const textoUTF8 = new TextDecoder('utf-8').decode(buffer);
+  if (!textoUTF8.includes('�')) return textoUTF8;
+  return new TextDecoder('windows-1252').decode(buffer);
+}
+
 function readCSVFile(file) {
   const errEl = document.getElementById('import-error');
   errEl.style.display = 'none';
@@ -1230,7 +1237,8 @@ function readCSVFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const parsed = parseCSV(e.target.result);
+      const texto = decodeTexto(e.target.result);
+      const parsed = parseCSV(texto);
       csvParsed = parsed.ars;
       csvParsedUSD = parsed.usd;
       const usdTxt = parsed.usd.length ? ` (+ ${parsed.usd.length} en USD)` : '';
@@ -1241,7 +1249,7 @@ function readCSVFile(file) {
       errEl.style.display = 'block';
     }
   };
-  reader.readAsText(file, 'windows-1252');
+  reader.readAsArrayBuffer(file);
 }
 
 function parseCSV(text) {
