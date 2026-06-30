@@ -7,6 +7,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js"></script>
   <style>
     :root {
       --verde-oscuro:  #1a4731;
@@ -542,6 +544,57 @@ function exportarRecibosCSV() {
   toast(`✅ ${recibosFiltrados.length} recibos exportados`);
 }
 
+/* ── EXPORTAR PDF ── */
+function crearPDF(titulo) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape' });
+  doc.setFontSize(14);
+  doc.setTextColor(26, 71, 49);
+  doc.text('Editorial Del Naranjo', 14, 15);
+  doc.setFontSize(11);
+  doc.setTextColor(90, 114, 101);
+  doc.text(titulo, 14, 22);
+  doc.setFontSize(9);
+  doc.text(`Generado el ${new Date().toLocaleString('es-AR')}`, 14, 28);
+  return doc;
+}
+
+function exportarClientesPDF() {
+  if (!filteredData.length) { toast('No hay datos para exportar', 'error'); return; }
+  const doc = crearPDF('Cuentas por Cobrar — Detalle de clientes');
+  doc.autoTable({
+    startY: 34,
+    head: [['Código', 'Cliente', 'Vendedor', 'Saldo Ant.', 'Mayo', 'Junio', 'Saldo Total', 'Estado']],
+    body: filteredData.map(r => [
+      r.codigo || '—', r.nombre, r.vendedor,
+      fmt(r.saldo_anterior), fmt(r.mayo_2026), fmt(r.junio_2026),
+      fmt(r.saldo_total), r.estado || 'Pendiente',
+    ]),
+    headStyles: { fillColor: [26, 71, 49] },
+    styles: { fontSize: 8 },
+    alternateRowStyles: { fillColor: [216, 243, 220] },
+  });
+  doc.save(`cuentas_por_cobrar_${new Date().toISOString().slice(0,10)}.pdf`);
+  toast(`✅ PDF generado con ${filteredData.length} filas`);
+}
+
+function exportarRecibosPDF() {
+  if (!recibosFiltrados.length) { toast('No hay recibos para exportar', 'error'); return; }
+  const doc = crearPDF('Cobros del Mes — Detalle de recibos');
+  doc.autoTable({
+    startY: 34,
+    head: [['N° RC', 'Fecha', 'Cliente', 'Vendedor', 'Forma de pago', 'Importe']],
+    body: recibosFiltrados.map(r => [
+      r.numero || '—', fmtFecha(r.fecha), r.cliente, r.vendedor || '—', r.forma_pago || '—', fmt(r.importe),
+    ]),
+    headStyles: { fillColor: [26, 71, 49] },
+    styles: { fontSize: 8 },
+    alternateRowStyles: { fillColor: [216, 243, 220] },
+  });
+  doc.save(`recibos_${new Date().toISOString().slice(0,10)}.pdf`);
+  toast(`✅ PDF generado con ${recibosFiltrados.length} recibos`);
+}
+
 /* ── AUTENTICACIÓN ── */
 async function checkSession() {
   const { data: { session } } = await db.auth.getSession();
@@ -681,7 +734,8 @@ function renderDashboard() {
         <label>Buscar</label>
         <input type="text" id="filter-search" placeholder="Nombre o código…" style="min-width:160px" />
         <button class="btn-reset" onclick="resetFilters()">Limpiar</button>
-        <button class="btn-import" style="margin-left:0" onclick="exportarClientesCSV()">⬇ Exportar</button>
+        <button class="btn-import" style="margin-left:0" onclick="exportarClientesCSV()">⬇ Excel/CSV</button>
+        <button class="btn-import" style="margin-left:0;background:var(--verde-oscuro)" onclick="exportarClientesPDF()">⬇ PDF</button>
       </div>
       <p class="table-counter" id="table-counter"></p>
       <div class="table-wrap"><table>
@@ -1295,7 +1349,8 @@ function renderRecibosSection() {
         <label>Buscar</label>
         <input type="text" id="filter-recibos-search" placeholder="Cliente o N° RC…" style="min-width:160px" />
         <button class="btn-reset" onclick="resetRecibosFilters()">Limpiar</button>
-        <button class="btn-import" style="margin-left:0" onclick="exportarRecibosCSV()">⬇ Exportar</button>
+        <button class="btn-import" style="margin-left:0" onclick="exportarRecibosCSV()">⬇ Excel/CSV</button>
+        <button class="btn-import" style="margin-left:0;background:var(--verde-oscuro)" onclick="exportarRecibosPDF()">⬇ PDF</button>
       </div>
       <p class="table-counter" id="recibos-counter"></p>
       <div class="table-wrap"><table>
