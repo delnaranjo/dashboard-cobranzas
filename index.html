@@ -1101,13 +1101,14 @@ async function updateEstado(id, sel) {
   if (r) r.estado = nuevoEstado;
 
   const { data: { user } } = await db.auth.getUser();
-  await db.from('historial_estados').insert({
+  const { error: errHist } = await db.from('historial_estados').insert({
     cliente_id: id,
     cliente_nombre: r ? r.nombre : '',
     estado_anterior: estadoAnterior || 'Pendiente',
     estado_nuevo: nuevoEstado || 'Pendiente',
     autor: user?.email || 'Desconocido',
   });
+  if (errHist) toast('Estado guardado, pero el historial falló: ' + errHist.message, 'error');
 }
 
 /* ── HISTORIAL DE CAMBIOS ── */
