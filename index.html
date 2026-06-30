@@ -368,18 +368,39 @@
 <!-- MODAL USD (vista oculta) -->
 <div class="modal-overlay" id="usd-modal">
   <div class="modal" style="max-width:950px">
-    <h2>🔒 Clientes con saldo en dólares</h2>
-    <p style="margin-bottom:14px">Vista restringida — no visible para el resto de los usuarios.</p>
-    <input type="text" id="usd-search" placeholder="Buscar cliente o código…" style="width:100%;border:1px solid var(--gris-borde);border-radius:8px;padding:8px 12px;font-size:.85rem;margin-bottom:12px;outline:none" oninput="renderUSDTable()" />
-    <div class="table-wrap" style="max-height:380px;overflow-y:auto">
-      <table>
-        <thead><tr>
-          <th>Código</th><th>Cliente</th><th>Vendedor</th>
-          <th class="num">Saldo Total (USD)</th><th>Estado</th><th>Nota</th>
-        </tr></thead>
-        <tbody id="usd-tbody"></tbody>
-      </table>
+    <h2>🔒 Vista restringida — Dólares</h2>
+    <p style="margin-bottom:14px">No visible para el resto de los usuarios.</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn-import" id="usd-tab-clientes" onclick="switchUSDTab('clientes')">Clientes</button>
+      <button class="btn-import" id="usd-tab-cobros" style="background:var(--gris-borde);color:var(--texto)" onclick="switchUSDTab('cobros')">Cobros</button>
     </div>
+
+    <div id="usd-vista-clientes">
+      <input type="text" id="usd-search" placeholder="Buscar cliente o código…" style="width:100%;border:1px solid var(--gris-borde);border-radius:8px;padding:8px 12px;font-size:.85rem;margin-bottom:12px;outline:none" oninput="renderUSDTable()" />
+      <div class="table-wrap" style="max-height:380px;overflow-y:auto">
+        <table>
+          <thead><tr>
+            <th>Código</th><th>Cliente</th><th>Vendedor</th>
+            <th class="num">Saldo Total (USD)</th><th>Estado</th><th>Nota</th>
+          </tr></thead>
+          <tbody id="usd-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="usd-vista-cobros" style="display:none">
+      <p style="font-size:.85rem;color:var(--texto-suave);margin-bottom:10px" id="usd-cobros-total"></p>
+      <div class="table-wrap" style="max-height:420px;overflow-y:auto">
+        <table>
+          <thead><tr>
+            <th>N° RC</th><th>Fecha</th><th>Cliente</th><th>Vendedor</th>
+            <th>Forma de pago</th><th>Moneda</th><th class="num">Importe</th>
+          </tr></thead>
+          <tbody id="usd-cobros-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="modal-actions" style="margin-top:14px">
       <button class="btn-cancel" onclick="closeUSDModal()">Cerrar</button>
     </div>
@@ -1118,6 +1139,8 @@ async function openUSDModal() {
   if (!esUsuarioUSD) return;
   const modal = document.getElementById('usd-modal');
   modal.classList.add('open');
+  cobrosUSDCargados = false;
+  switchUSDTab('clientes');
   document.getElementById('usd-search').value = '';
   document.getElementById('usd-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--texto-suave)">Cargando…</td></tr>';
   const { data, error } = await db.from('clientes_usd').select('*').order('saldo_total', { ascending: false });
@@ -1161,6 +1184,53 @@ async function updateEstadoUSD(id, sel) {
 }
 
 function closeUSDModal() { document.getElementById('usd-modal').classList.remove('open'); }
+
+/* ── COBROS USD ── */
+let cobrosUSDData = [];
+let cobrosUSDCargados = false;
+
+function switchUSDTab(tab) {
+  const btnC = document.getElementById('usd-tab-clientes');
+  const btnR = document.getElementById('usd-tab-cobros');
+  const vC = document.getElementById('usd-vista-clientes');
+  const vR = document.getElementById('usd-vista-cobros');
+  if (tab === 'clientes') {
+    vC.style.display = 'block'; vR.style.display = 'none';
+    btnC.style.background = 'var(--verde-claro)'; btnC.style.color = 'var(--verde-oscuro)';
+    btnR.style.background = 'var(--gris-borde)'; btnR.style.color = 'var(--texto)';
+  } else {
+    vC.style.display = 'none'; vR.style.display = 'block';
+    btnR.style.background = 'var(--verde-claro)'; btnR.style.color = 'var(--verde-oscuro)';
+    btnC.style.background = 'var(--gris-borde)'; btnC.style.color = 'var(--texto)';
+    if (!cobrosUSDCargados) loadCobrosUSD();
+  }
+}
+
+async function loadCobrosUSD() {
+  document.getElementById('usd-cobros-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--texto-suave)">Cargando…</td></tr>';
+  const { data, error } = await db.from('recibos_usd').select('*').order('fecha', { ascending: false });
+  if (error) { document.getElementById('usd-cobros-tbody').innerHTML = `<tr><td colspan="7" style="color:var(--naranja)">Error: ${error.message}</td></tr>`; return; }
+  cobrosUSDData = data || [];
+  cobrosUSDCargados = true;
+  if (!cobrosUSDData.length) {
+    document.getElementById('usd-cobros-total').textContent = '';
+    document.getElementById('usd-cobros-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--texto-suave)">Sin cobros de clientes USD cargados.</td></tr>';
+    return;
+  }
+  const totalUSD = cobrosUSDData.filter(r => r.moneda === 'USD').reduce((s, r) => s + r.importe, 0);
+  const totalARS = cobrosUSDData.filter(r => r.moneda !== 'USD').reduce((s, r) => s + r.importe, 0);
+  document.getElementById('usd-cobros-total').textContent = `${cobrosUSDData.length} cobros — Total: ${fmtUSD(totalUSD)} + ${fmt(totalARS)}`;
+  document.getElementById('usd-cobros-tbody').innerHTML = cobrosUSDData.map(r => `
+    <tr>
+      <td><strong>${r.numero||'—'}</strong></td>
+      <td>${fmtFecha(r.fecha)}</td>
+      <td>${r.cliente||'—'}</td>
+      <td>${r.vendedor||'—'}</td>
+      <td>${r.forma_pago||'—'}</td>
+      <td>${r.moneda === 'USD' ? 'US$' : 'ARS'}</td>
+      <td class="num">${r.moneda === 'USD' ? fmtUSD(r.importe) : fmt(r.importe)}</td>
+    </tr>`).join('');
+}
 
 /* ── MODAL NOTA ── */
 let notaTabla = 'clientes';
@@ -1745,6 +1815,13 @@ function extractFormaPago(s) {
   return s.split(' ')[0];
 }
 
+function parseImporteCelda(raw) {
+  if (typeof raw === 'number') return { valor: Math.abs(raw), moneda: 'ARS' };
+  const s = String(raw || '');
+  const moneda = /u\$s/i.test(s) ? 'USD' : 'ARS';
+  return { valor: Math.abs(parseNum(s)), moneda };
+}
+
 function readXLSXFile(file) {
   const errEl = document.getElementById('import-error-recibos');
   errEl.style.display = 'none';
@@ -1776,16 +1853,20 @@ function readXLSXFile(file) {
       // preferir "Importe Contable" (última columna importe) para el monto real
       const impIdx = headers.reduce((acc,h,i) => h.includes('importe') ? i : acc, C.importe);
 
-      xlsxParsed = rows.slice(headerIdx+1).map(r => ({
-        fecha:          excelDateToISO(r[C.fecha]),
-        numero:         String(r[C.numero]||'').trim(),
-        cliente:        String(r[C.cliente]||'').trim(),
-        codigo_cliente: String(r[C.codigo+1]||r[C.codigo]||'').trim(),
-        importe:        Math.abs(parseFloat(r[impIdx])||0),
-        forma_pago:     extractFormaPago(String(r[C.forma]||'')),
-        vendedor:       String(r[C.vendedor]||'').trim() || 'Sin asignar',
-        usuario:        String(r[C.usuario]||'').trim(),
-      })).filter(r => r.cliente && r.importe > 0);
+      xlsxParsed = rows.slice(headerIdx+1).map(r => {
+        const { valor, moneda } = parseImporteCelda(r[impIdx]);
+        return {
+          fecha:          excelDateToISO(r[C.fecha]),
+          numero:         String(r[C.numero]||'').trim(),
+          cliente:        String(r[C.cliente]||'').trim(),
+          codigo_cliente: String(r[C.codigo+1]||r[C.codigo]||'').trim(),
+          importe:        valor,
+          moneda,
+          forma_pago:     extractFormaPago(String(r[C.forma]||'')),
+          vendedor:       String(r[C.vendedor]||'').trim() || 'Sin asignar',
+          usuario:        String(r[C.usuario]||'').trim(),
+        };
+      }).filter(r => r.cliente && r.importe > 0);
 
       if (!xlsxParsed.length) throw new Error('No se encontraron recibos válidos en el archivo.');
       document.getElementById('file-name-recibos').textContent = `✅ ${file.name} — ${xlsxParsed.length} recibos`;
@@ -1804,14 +1885,32 @@ async function doImportRecibos() {
   const btn    = document.getElementById('btn-confirm-recibos');
   progEl.style.display = 'block'; btn.disabled = true; importandoRecibos = true;
 
+  // Separar recibos de clientes USD (van a la tabla oculta) de los demás
+  const { data: clientesUSD, error: errUSD } = await db.from('clientes_usd').select('codigo');
+  if (errUSD) { errEl.textContent = 'Error al leer clientes USD: '+errUSD.message; errEl.style.display='block'; progEl.style.display='none'; btn.disabled=false; importandoRecibos=false; return; }
+  const codigosUSD = new Set((clientesUSD||[]).filter(c => c.codigo).map(c => c.codigo));
+
+  const filasPublicas = xlsxParsed.filter(r => !codigosUSD.has(r.codigo_cliente)).map(({moneda, ...resto}) => resto);
+  const filasUSD      = xlsxParsed.filter(r => codigosUSD.has(r.codigo_cliente));
+
   const { error: delErr } = await db.from('recibos').delete().neq('id','00000000-0000-0000-0000-000000000000');
   if (delErr) { errEl.textContent = 'Error al limpiar: '+delErr.message; errEl.style.display='block'; progEl.style.display='none'; btn.disabled=false; importandoRecibos=false; return; }
 
-  const { error } = await db.from('recibos').insert(xlsxParsed);
-  if (error) { errEl.textContent = 'Error al insertar: '+error.message; errEl.style.display='block'; progEl.style.display='none'; btn.disabled=false; importandoRecibos=false; return; }
+  if (filasPublicas.length) {
+    const { error } = await db.from('recibos').insert(filasPublicas);
+    if (error) { errEl.textContent = 'Error al insertar: '+error.message; errEl.style.display='block'; progEl.style.display='none'; btn.disabled=false; importandoRecibos=false; return; }
+  }
 
-  progEl.textContent = `✅ ${xlsxParsed.length} recibos importados.`;
-  toast(`✅ ${xlsxParsed.length} recibos importados`);
+  const { error: delErrUSD } = await db.from('recibos_usd').delete().neq('id','00000000-0000-0000-0000-000000000000');
+  if (delErrUSD) { errEl.textContent = 'Error al limpiar recibos USD: '+delErrUSD.message; errEl.style.display='block'; progEl.style.display='none'; btn.disabled=false; importandoRecibos=false; return; }
+
+  if (filasUSD.length) {
+    const { error: errInsUSD } = await db.from('recibos_usd').insert(filasUSD);
+    if (errInsUSD) { errEl.textContent = 'Error al insertar recibos USD: '+errInsUSD.message; errEl.style.display='block'; progEl.style.display='none'; btn.disabled=false; importandoRecibos=false; return; }
+  }
+
+  progEl.textContent = `✅ ${filasPublicas.length} recibos importados${filasUSD.length ? ` (+ ${filasUSD.length} de clientes USD)` : ''}.`;
+  toast(`✅ ${filasPublicas.length} recibos importados${filasUSD.length ? ` (+ ${filasUSD.length} USD)` : ''}`);
   importandoRecibos = false;
   await loadRecibos();
   renderRecibosSection();
