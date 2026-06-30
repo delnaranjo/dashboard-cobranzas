@@ -1541,7 +1541,7 @@ function parseMaestroCSV(text) {
     .normalize('NFD').replace(/[̀-ͯ]/g, ''));
   const ci = term => headers.findIndex(h => h.includes(term));
   const iCodigo = ci('codigo');
-  const iNombre = ci('descripci'); // columna "Descripción"
+  const iNombre = ci('razon'); // columna "Razón social"
   const iPais   = ci('pais');
 
   if (iCodigo < 0 || iPais < 0) return [];
