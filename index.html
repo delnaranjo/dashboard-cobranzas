@@ -522,14 +522,6 @@ function showApp() {
 /* ── INIT ── */
 async function init() {
   await Promise.all([loadData(), loadRecibos()]);
-  subscribeRealtime();
-}
-
-/* ── CARGAR DATOS ── */
-async function loadData() {
-  const { data, error } = await db.from('clientes').select('*').order('saldo_total', { ascending: false });
-  if (error) { toast('Error al cargar datos: ' + error.message, 'error'); return; }
-  allData = (data || []).filter(r => r.saldo_total >= 10);
   document.getElementById('loading').style.display = 'none';
   if (!allData.length) {
     document.getElementById('dashboard').style.display = 'block';
@@ -539,9 +531,17 @@ async function loadData() {
         <p style="font-size:1rem;font-weight:600;color:var(--verde-oscuro);margin-bottom:8px">No hay datos cargados</p>
         <p>Usá el botón <strong>⬆ Importar CSV</strong> para cargar la planilla por primera vez.</p>
       </div>`;
-    return;
+  } else {
+    renderDashboard();
   }
-  renderDashboard();
+  subscribeRealtime();
+}
+
+/* ── CARGAR DATOS ── */
+async function loadData() {
+  const { data, error } = await db.from('clientes').select('*').order('saldo_total', { ascending: false });
+  if (error) { toast('Error al cargar datos: ' + error.message, 'error'); return; }
+  allData = (data || []).filter(r => r.saldo_total >= 10);
 }
 
 /* ── REALTIME ── */
@@ -1063,6 +1063,7 @@ async function doImport() {
   toast(`✅ Importación completa: ${paraActualizar.length} actualizados, ${paraInsertar.length} nuevos`);
   setTimeout(closeImportModal, 2000);
   await loadData();
+  renderDashboard();
   importando = false;
 }
 
