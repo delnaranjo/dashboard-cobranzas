@@ -326,6 +326,7 @@
     <button class="btn-import" onclick="openImportModal()">⬆ Importar CSV</button>
     <button class="btn-import" style="background:var(--naranja);color:#fff" onclick="openImportRecibosModal()">⬆ Importar Recibos</button>
     <button class="btn-import" id="btn-usd" style="display:none;background:#1a1a2e;color:#fff" onclick="openUSDModal()">🔒 USD</button>
+    <button class="btn-import" id="btn-maestro" style="display:none;background:#4a4a6a;color:#fff" onclick="openMaestroModal()">📋 Maestro</button>
     <button class="btn-logout" onclick="doLogout()">Salir</button>
   </div>
 </header>
@@ -435,6 +436,27 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeImportRecibosModal()">Cancelar</button>
       <button class="btn-confirm" id="btn-confirm-recibos" disabled onclick="doImportRecibos()">Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MAESTRO DE CLIENTES -->
+<div class="modal-overlay" id="maestro-modal">
+  <div class="modal">
+    <h2>Maestro de Clientes</h2>
+    <p>Subí el CSV completo de clientes exportado desde Fierro. La app detectará automáticamente todos los clientes de exterior (país ≠ Argentina) y los registrará como clientes USD.</p>
+    <div class="upload-zone" id="upload-zone-maestro" onclick="document.getElementById('file-input-maestro').click()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+      </svg>
+      <span id="file-name-maestro">Arrastrá el archivo CSV o hacé clic para seleccionar</span>
+    </div>
+    <input type="file" id="file-input-maestro" accept=".csv" />
+    <div class="import-progress" id="import-progress-maestro" style="display:none">⏳ Procesando…</div>
+    <div class="import-error" id="import-error-maestro" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeMaestroModal()">Cancelar</button>
+      <button class="btn-confirm" id="btn-confirm-maestro" disabled onclick="doImportMaestro()">Registrar clientes exterior</button>
     </div>
   </div>
 </div>
@@ -706,6 +728,8 @@ async function checkAccesoUSD() {
   esUsuarioUSD = !!data;
   const btn = document.getElementById('btn-usd');
   if (btn) btn.style.display = esUsuarioUSD ? 'inline-block' : 'none';
+  const btnM = document.getElementById('btn-maestro');
+  if (btnM) btnM.style.display = esUsuarioUSD ? 'inline-block' : 'none';
 }
 
 async function init() {
@@ -1478,6 +1502,113 @@ async function importarEnTabla(tabla, filas, progEl, errEl, onProgress, opciones
   return { actualizados: paraActualizar.length, nuevos: paraInsertar.length, saldados: idsParaBorrar.length };
 }
 
+// ── MAESTRO DE CLIENTES ──────────────────────────────────────────────────────
+let maestroParsed = null;
+
+function openMaestroModal() {
+  maestroParsed = null;
+  document.getElementById('file-name-maestro').textContent = 'Arrastrá el archivo CSV o hacé clic para seleccionar';
+  document.getElementById('btn-confirm-maestro').disabled = true;
+  document.getElementById('import-progress-maestro').style.display = 'none';
+  document.getElementById('import-error-maestro').style.display = 'none';
+  document.getElementById('maestro-modal').style.display = 'flex';
+}
+
+function closeMaestroModal() {
+  document.getElementById('maestro-modal').style.display = 'none';
+}
+
+document.getElementById('file-input-maestro').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('file-name-maestro').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const text = decodeTexto(ev.target.result);
+    maestroParsed = parseMaestroCSV(text);
+    document.getElementById('btn-confirm-maestro').disabled = maestroParsed.length === 0;
+    document.getElementById('import-error-maestro').style.display = maestroParsed.length === 0 ? 'block' : 'none';
+    document.getElementById('import-error-maestro').textContent = maestroParsed.length === 0 ? 'No se encontraron clientes de exterior en el archivo.' : '';
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+function parseMaestroCSV(text) {
+  const lineas = text.split(/\r?\n/).filter(l => l.trim());
+  // Detectar separador
+  const sep = lineas[0].includes(';') ? ';' : ',';
+  const headers = lineas[0].split(sep).map(h => h.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, ''));
+  const ci = term => headers.findIndex(h => h.includes(term));
+  const iCodigo = ci('codigo');
+  const iNombre = ci('descripci'); // columna "Descripción"
+  const iPais   = ci('pais');
+
+  if (iCodigo < 0 || iPais < 0) return [];
+
+  const exterior = [];
+  for (let i = 1; i < lineas.length; i++) {
+    const cols = lineas[i].split(sep);
+    const pais = (cols[iPais] || '').trim();
+    if (!pais || pais.toLowerCase() === 'argentina') continue;
+    const codigo = (cols[iCodigo] || '').trim();
+    if (!codigo) continue;
+    const nombre = iNombre >= 0 ? (cols[iNombre] || '').trim() : codigo;
+    exterior.push({ codigo, nombre });
+  }
+  return exterior;
+}
+
+async function doImportMaestro() {
+  if (!maestroParsed || !maestroParsed.length) return;
+  const progEl = document.getElementById('import-progress-maestro');
+  const errEl  = document.getElementById('import-error-maestro');
+  const btn    = document.getElementById('btn-confirm-maestro');
+  progEl.style.display = 'block';
+  errEl.style.display  = 'none';
+  btn.disabled = true;
+
+  // Leer clientes_usd existentes para no pisar estado/notas
+  const { data: existentes, error: fetchErr } = await db.from('clientes_usd').select('id, codigo, estado, notas, nota_autor, nota_fecha');
+  if (fetchErr) { errEl.textContent = 'Error al leer clientes_usd: ' + fetchErr.message; errEl.style.display = 'block'; progEl.style.display = 'none'; btn.disabled = false; return; }
+
+  const mapaExistentes = new Map((existentes || []).filter(c => c.codigo).map(c => [c.codigo, c]));
+
+  const BATCH = 200;
+  let nuevos = 0, actualizados = 0;
+
+  for (let i = 0; i < maestroParsed.length; i += BATCH) {
+    const lote = maestroParsed.slice(i, i + BATCH);
+    progEl.textContent = `⏳ Procesando ${Math.min(i + BATCH, maestroParsed.length)} / ${maestroParsed.length}…`;
+
+    for (const row of lote) {
+      const existente = mapaExistentes.get(row.codigo);
+      if (existente) {
+        // Solo actualizar nombre, preservar todo lo demás
+        const { error } = await db.from('clientes_usd').update({ nombre: row.nombre }).eq('id', existente.id);
+        if (error) { errEl.textContent = 'Error al actualizar: ' + error.message; errEl.style.display = 'block'; progEl.style.display = 'none'; btn.disabled = false; return; }
+        actualizados++;
+      } else {
+        // Insertar con saldos en cero
+        const { error } = await db.from('clientes_usd').insert({
+          codigo: row.codigo, nombre: row.nombre,
+          saldo_anterior: 0, saldo_total: 0, saldo_post: 0,
+          estado: 'Pendiente'
+        });
+        if (error) { errEl.textContent = 'Error al insertar: ' + error.message; errEl.style.display = 'block'; progEl.style.display = 'none'; btn.disabled = false; return; }
+        nuevos++;
+      }
+    }
+  }
+
+  progEl.textContent = `✅ Listo: ${nuevos} nuevos clientes exterior registrados, ${actualizados} actualizados.`;
+  btn.disabled = false;
+  toast(`Maestro importado: ${nuevos} nuevos + ${actualizados} actualizados en clientes USD`, 'success');
+  await loadData();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function doImport() {
   if (!csvParsed || !csvParsed.length) return;
   const progEl = document.getElementById('import-progress');
@@ -1817,6 +1948,23 @@ const uzr = document.getElementById('upload-zone-recibos');
 uzr.addEventListener('dragover', e => { e.preventDefault(); uzr.classList.add('drag-over'); });
 uzr.addEventListener('dragleave', () => uzr.classList.remove('drag-over'));
 uzr.addEventListener('drop', e => { e.preventDefault(); uzr.classList.remove('drag-over'); if (e.dataTransfer.files[0]) readXLSXFile(e.dataTransfer.files[0]); });
+
+const uzm = document.getElementById('upload-zone-maestro');
+uzm.addEventListener('dragover', e => { e.preventDefault(); uzm.classList.add('drag-over'); });
+uzm.addEventListener('dragleave', () => uzm.classList.remove('drag-over'));
+uzm.addEventListener('drop', e => {
+  e.preventDefault(); uzm.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  document.getElementById('file-name-maestro').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const text = decodeTexto(ev.target.result);
+    maestroParsed = parseMaestroCSV(text);
+    document.getElementById('btn-confirm-maestro').disabled = maestroParsed.length === 0;
+  };
+  reader.readAsArrayBuffer(file);
+});
 
 function excelDateToISO(serial) {
   if (!serial || isNaN(serial)) return null;
