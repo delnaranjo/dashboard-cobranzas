@@ -21,27 +21,35 @@
       --gris-borde:    #d1ddd4;
       --texto:         #1b2d25;
       --texto-suave:   #5a7265;
+      --header-fondo:  #e1f5ee;
+      --header-texto:  #04342c;
+      --header-acento: #0f6e56;
+      --ambar:         #f59e0b;
+      --ambar-claro:   #fef3c7;
+      --ambar-texto:   #92400e;
+      --gris-badge:    #e5e7eb;
+      --gris-badge-texto: #4b5563;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gris-fondo); color: var(--texto); min-height: 100vh; }
 
     /* HEADER */
     header {
-      background: var(--verde-oscuro); color: #fff;
-      padding: 16px 28px; display: flex; align-items: center;
-      justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+      background: var(--header-fondo); color: var(--header-texto);
+      padding: 14px 28px; display: flex; align-items: center;
+      justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,.06);
       position: sticky; top: 0; z-index: 100;
       flex-wrap: wrap; gap: 12px;
     }
     .brand { display: flex; align-items: center; gap: 14px; }
     .logo {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: var(--verde-claro); display: flex; align-items: center;
-      justify-content: center; font-size: 20px; font-weight: 800; color: var(--verde-oscuro);
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--header-acento); display: flex; align-items: center;
+      justify-content: center; font-size: 16px; font-weight: 800; color: #fff;
       flex-shrink: 0;
     }
-    header h1 { font-size: 1.15rem; font-weight: 700; }
-    header p  { font-size: .75rem; opacity: .7; margin-top: 2px; }
+    header h1 { font-size: 1.1rem; font-weight: 700; color: var(--header-texto); }
+    header p  { font-size: .75rem; color: var(--header-acento); opacity: .85; margin-top: 2px; }
     .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     @media (max-width: 700px) {
       header { padding: 12px 16px; }
@@ -50,7 +58,7 @@
     }
     .live-indicator {
       display: flex; align-items: center; gap: 6px;
-      font-size: .75rem; opacity: .8;
+      font-size: .75rem; color: var(--header-texto); opacity: .85;
     }
     .live-dot {
       width: 8px; height: 8px; border-radius: 50%;
@@ -146,7 +154,8 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* DASHBOARD */
-    #dashboard { padding: 24px 28px 48px; max-width: 1340px; margin: 0 auto; }
+    #dashboard { padding: 32px 40px 48px; max-width: 1340px; margin: 0 auto; }
+    @media (min-width: 1400px) { #dashboard { padding: 40px 64px 56px; } }
 
     .section-title {
       font-size: .95rem; font-weight: 700; color: var(--verde-oscuro);
@@ -160,15 +169,13 @@
       gap: 16px; margin-bottom: 32px;
     }
     .kpi-card {
-      background: #fff; border-radius: 14px; padding: 20px 22px;
-      box-shadow: 0 1px 6px rgba(0,0,0,.07); display: flex;
-      flex-direction: column; gap: 5px; border-top: 4px solid var(--verde-claro);
+      background: #fafbfa; border-radius: 14px; padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 4px;
+      border: 1px solid var(--gris-borde);
     }
-    .kpi-card.k2 { border-top-color: var(--verde-medio); }
-    .kpi-card.k3 { border-top-color: var(--naranja); }
-    .kpi-card.k4 { border-top-color: var(--verde-oscuro); }
-    .kpi-label { font-size: .74rem; text-transform: uppercase; letter-spacing: .8px; color: var(--texto-suave); }
-    .kpi-value { font-size: 1.6rem; font-weight: 800; color: var(--verde-oscuro); }
+    .kpi-card.k2, .kpi-card.k3, .kpi-card.k4 { border-color: var(--gris-borde); }
+    .kpi-label { font-size: .74rem; color: var(--texto-suave); font-weight: 500; }
+    .kpi-value { font-size: 24px; font-weight: 500; color: var(--texto); }
     .kpi-sub   { font-size: .76rem; color: var(--texto-suave); }
 
     /* CHARTS */
@@ -213,6 +220,7 @@
     thead th.sortable { cursor: pointer; user-select: none; }
     thead th.sortable:hover { background: var(--verde-medio); }
     tbody tr { border-bottom: 1px solid var(--gris-borde); }
+    tbody tr:nth-child(even) { background: #f7f9f7; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: var(--verde-palido); }
     tbody td { padding: 9px 13px; }
@@ -226,9 +234,10 @@
       text-transform: uppercase; letter-spacing: .4px;
       background-color: transparent;
     }
-    .estado-select.s-pagado    { background: #d1fadf; color: #1a6535; border-color: #a7f3c0; }
-    .estado-select.s-reclamado { background: var(--naranja-claro); color: #a63d1f; border-color: #fbb39a; }
-    .estado-select.s-pendiente { background: #ffe0e0; color: #9b1c1c; border-color: #fca5a5; }
+    .estado-select.s-pagado     { background: #d1fadf; color: #1a6535; border-color: #a7f3c0; }
+    .estado-select.s-reclamado  { background: #fee2e2; color: #9b1c1c; border-color: #fca5a5; }
+    .estado-select.s-pendiente  { background: var(--ambar-claro); color: var(--ambar-texto); border-color: #fcd34d; }
+    .estado-select.s-sinestado  { background: var(--gris-badge); color: var(--gris-badge-texto); border-color: #d1d5db; }
     .estado-select:focus { box-shadow: 0 0 0 2px var(--verde-claro); }
 
     /* NOTA BUTTON */
@@ -285,10 +294,10 @@
     .login-card button:disabled { background: #aaa; cursor: not-allowed; }
     .login-error { color: var(--naranja); font-size: .82rem; margin-bottom: 12px; min-height: 16px; }
     .btn-logout {
-      background: transparent; border: 1px solid rgba(255,255,255,.4); color: #fff;
+      background: transparent; border: 1px solid rgba(4,52,44,.3); color: var(--header-texto);
       border-radius: 8px; padding: 6px 14px; font-size: .78rem; cursor: pointer;
     }
-    .btn-logout:hover { background: rgba(255,255,255,.15); }
+    .btn-logout:hover { background: rgba(4,52,44,.08); }
   </style>
 </head>
 <body>
@@ -509,7 +518,8 @@
         <option value="">Todos</option>
         <option value="PAGADO">Pagado</option>
         <option value="RECLAMADO">Reclamado</option>
-        <option value="PENDIENTE">Sin estado</option>
+        <option value="PENDIENTE">Pendiente</option>
+        <option value="SIN_ESTADO">Sin estado</option>
       </select>
       <label>Buscar</label>
       <input type="text" id="filter-search" placeholder="Nombre o código…" style="min-width:160px" />
@@ -650,7 +660,7 @@ function exportarClientesPDF() {
     body: filteredData.map(r => [
       r.codigo || '—', r.nombre, r.vendedor,
       fmt(r.saldo_anterior), fmt(r.mayo_2026), fmt(r.junio_2026),
-      fmt(r.saldo_total), r.estado || 'Pendiente',
+      fmt(r.saldo_total), r.estado === 'PENDIENTE' ? 'Pendiente' : (r.estado || 'Sin estado'),
     ]),
     headStyles: { fillColor: [26, 71, 49] },
     styles: { fontSize: 8 },
@@ -809,6 +819,7 @@ function renderDashboard() {
       <div class="card"><p class="section-title" style="border:none;margin-bottom:10px">Aging de deuda</p><canvas id="aging-chart"></canvas></div>
       <div class="card"><p class="section-title" style="border:none;margin-bottom:10px">Estado de cartera</p><canvas id="estado-chart"></canvas></div>
     </div>
+    <div class="card mb-4"><p class="section-title" style="border:none;margin-bottom:10px">Tendencia de deuda total por período</p><canvas id="tendencia-chart"></canvas></div>
     <p class="section-title">Top 10 deudores</p>
     <div class="card mb-4"><div class="table-wrap"><table>
       <thead><tr><th>#</th><th>Cliente</th><th>Vendedor</th><th class="num">Saldo Total</th><th>Estado</th></tr></thead>
@@ -854,6 +865,7 @@ function renderDashboard() {
   renderAlertas();
   renderAgingChart();
   renderEstadoChart();
+  renderTendenciaChart();
   renderTop10();
   populateVendedorFilter();
   applyFilters();
@@ -940,6 +952,40 @@ function renderAgingChart() {
   });
 }
 
+/* ── TENDENCIA CHART ── */
+let tendenciaChart = null;
+function renderTendenciaChart() {
+  const canvas = document.getElementById('tendencia-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (tendenciaChart) tendenciaChart.destroy();
+  tendenciaChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Saldo Anterior', 'Mayo 2026', 'Junio 2026'],
+      datasets: [{
+        label: 'Total adeudado',
+        data: [
+          allData.reduce((s, r) => s + Math.max(r.saldo_anterior, 0), 0),
+          allData.reduce((s, r) => s + Math.max(r.saldo_anterior, 0) + Math.max(r.mayo_2026, 0), 0),
+          allData.reduce((s, r) => s + Math.max(r.saldo_total, 0), 0),
+        ],
+        borderColor: '#2d6a4f',
+        backgroundColor: 'rgba(45,106,79,.12)',
+        fill: true, tension: .3, pointRadius: 4, pointBackgroundColor: '#2d6a4f',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+      scales: {
+        y: { ticks: { callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : (v/1000).toFixed(0)+'k') }, grid: { color: '#eee' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── ESTADO CHART ── */
 function renderEstadoChart() {
   const ctx = document.getElementById('estado-chart').getContext('2d');
@@ -947,14 +993,15 @@ function renderEstadoChart() {
   estadoChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Pagado', 'Reclamado', 'Pendiente'],
+      labels: ['Pagado', 'Reclamado', 'Pendiente', 'Sin estado'],
       datasets: [{
         data: [
           allData.filter(r => r.estado === 'PAGADO').length,
           allData.filter(r => r.estado === 'RECLAMADO').length,
-          allData.filter(r => r.estado !== 'PAGADO' && r.estado !== 'RECLAMADO').length,
+          allData.filter(r => r.estado === 'PENDIENTE').length,
+          allData.filter(r => !r.estado).length,
         ],
-        backgroundColor: ['#52b788', '#e76f51', '#e63946'],
+        backgroundColor: ['#52b788', '#e63946', '#f59e0b', '#9ca3af'],
         hoverOffset: 8, borderWidth: 2, borderColor: '#fff',
       }]
     },
@@ -981,16 +1028,18 @@ function renderTop10() {
 
 /* ── BADGE ── */
 function estadoBadge(e) {
-  if (!e || !e.trim()) return `<span class="badge" style="background:#ffe0e0;color:#9b1c1c;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;text-transform:uppercase">Pendiente</span>`;
+  if (!e || !e.trim()) return `<span class="badge" style="background:var(--gris-badge);color:var(--gris-badge-texto);padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;text-transform:uppercase">Sin estado</span>`;
   if (e === 'PAGADO')    return `<span class="badge" style="background:#d1fadf;color:#1a6535;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;text-transform:uppercase">Pagado</span>`;
-  if (e === 'RECLAMADO') return `<span class="badge" style="background:var(--naranja-claro);color:#a63d1f;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;text-transform:uppercase">Reclamado</span>`;
+  if (e === 'RECLAMADO') return `<span class="badge" style="background:#fee2e2;color:#9b1c1c;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;text-transform:uppercase">Reclamado</span>`;
+  if (e === 'PENDIENTE') return `<span class="badge" style="background:var(--ambar-claro);color:var(--ambar-texto);padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;text-transform:uppercase">Pendiente</span>`;
   return `<span class="badge" style="padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700">${e}</span>`;
 }
 
 function estadoClass(e) {
   if (e === 'PAGADO')    return 's-pagado';
   if (e === 'RECLAMADO') return 's-reclamado';
-  return 's-pendiente';
+  if (e === 'PENDIENTE') return 's-pendiente';
+  return 's-sinestado';
 }
 
 /* ── FILTROS ── */
@@ -1030,8 +1079,8 @@ function applyFilters() {
   const search = ((document.getElementById('filter-search')  || {}).value || '').trim().toLowerCase();
   filteredData = allData.filter(r => {
     if (vend && r.vendedor !== vend) return false;
-    if (estado === 'PENDIENTE' && (r.estado === 'PAGADO' || r.estado === 'RECLAMADO')) return false;
-    if (estado && estado !== 'PENDIENTE' && r.estado !== estado) return false;
+    if (estado === 'SIN_ESTADO' && r.estado) return false;
+    else if (estado && estado !== 'SIN_ESTADO' && r.estado !== estado) return false;
     if (search && !r.nombre.toLowerCase().includes(search) && !(r.codigo||'').toLowerCase().includes(search)) return false;
     return true;
   });
@@ -1075,7 +1124,8 @@ function renderMainTable() {
       <td class="num"><strong>${fmt(r.saldo_total)}</strong></td>
       <td>
         <select class="estado-select ${estadoClass(r.estado)}" onchange="updateEstado('${r.id}', this)">
-          <option value="" ${!r.estado?'selected':''}>Pendiente</option>
+          <option value="" ${!r.estado?'selected':''}>Sin estado</option>
+          <option value="PENDIENTE" ${r.estado==='PENDIENTE'?'selected':''}>Pendiente</option>
           <option value="PAGADO" ${r.estado==='PAGADO'?'selected':''}>Pagado</option>
           <option value="RECLAMADO" ${r.estado==='RECLAMADO'?'selected':''}>Reclamado</option>
         </select>
@@ -1111,6 +1161,14 @@ function renderPagination(pages) {
 
 function goPage(p) { currentPage = p; renderMainTable(); }
 
+function estadoLabel(e) {
+  if (!e) return 'Sin estado';
+  if (e === 'PENDIENTE') return 'Pendiente';
+  if (e === 'PAGADO') return 'Pagado';
+  if (e === 'RECLAMADO') return 'Reclamado';
+  return e;
+}
+
 /* ── ACTUALIZAR ESTADO ── */
 async function updateEstado(id, sel) {
   const nuevoEstado = sel.value;
@@ -1128,8 +1186,9 @@ async function updateEstado(id, sel) {
   const { error: errHist } = await db.from('historial_estados').insert({
     cliente_id: id,
     cliente_nombre: r ? r.nombre : '',
-    estado_anterior: estadoAnterior || 'Pendiente',
-    estado_nuevo: nuevoEstado || 'Pendiente',
+    estado_anterior: estadoLabel(estadoAnterior),
+    estado_nuevo: estadoLabel(nuevoEstado),
+    tipo: 'estado',
     autor: user?.email || 'Desconocido',
   });
   if (errHist) toast('Estado guardado, pero el historial falló: ' + errHist.message, 'error');
@@ -1146,7 +1205,9 @@ async function openHistorialModal(id, nombre) {
   if (!data.length) { document.getElementById('historial-lista').innerHTML = '<p style="text-align:center;color:var(--texto-suave);padding:20px">Sin cambios registrados todavía.</p>'; return; }
   document.getElementById('historial-lista').innerHTML = data.map(h => `
     <div style="border-bottom:1px solid var(--gris-borde);padding:10px 0">
-      <p style="font-size:.85rem"><strong>${h.estado_anterior}</strong> → <strong>${h.estado_nuevo}</strong></p>
+      <p style="font-size:.85rem">${h.tipo === 'saldo'
+        ? `💰 ${h.detalle || ''}`
+        : `<strong>${h.estado_anterior}</strong> → <strong>${h.estado_nuevo}</strong>`}</p>
       <p style="font-size:.76rem;color:var(--texto-suave)">${h.autor} — ${new Date(h.fecha).toLocaleString('es-AR')}</p>
     </div>`).join('');
 }
@@ -1186,7 +1247,8 @@ function renderUSDTable() {
       <td class="num"><strong>${fmtUSD(r.saldo_total)}</strong></td>
       <td>
         <select class="estado-select ${estadoClass(r.estado)}" onchange="updateEstadoUSD('${r.id}', this)">
-          <option value="" ${!r.estado?'selected':''}>Pendiente</option>
+          <option value="" ${!r.estado?'selected':''}>Sin estado</option>
+          <option value="PENDIENTE" ${r.estado==='PENDIENTE'?'selected':''}>Pendiente</option>
           <option value="PAGADO" ${r.estado==='PAGADO'?'selected':''}>Pagado</option>
           <option value="RECLAMADO" ${r.estado==='RECLAMADO'?'selected':''}>Reclamado</option>
         </select>
@@ -1442,7 +1504,7 @@ function parseCSV(text) {
 
 async function importarEnTabla(tabla, filas, progEl, errEl, onProgress, opciones) {
   opciones = opciones || {};
-  const { data: existentes, error: fetchErr } = await db.from(tabla).select('id, codigo, estado, notas');
+  const { data: existentes, error: fetchErr } = await db.from(tabla).select('id, codigo, estado, notas, saldo_total');
   if (fetchErr) return { error: 'Error al leer datos existentes (' + tabla + '): ' + fetchErr.message };
 
   const mapaExistentes = new Map(existentes.filter(c => c.codigo).map(c => [c.codigo, c]));
@@ -1450,10 +1512,14 @@ async function importarEnTabla(tabla, filas, progEl, errEl, onProgress, opciones
 
   const paraActualizar = [];
   const paraInsertar = [];
+  const cambiosSaldo = [];
   filas.forEach(row => {
     const existente = row.codigo ? mapaExistentes.get(row.codigo) : null;
     if (existente) {
       paraActualizar.push({ ...row, id: existente.id, estado: existente.estado, notas: existente.notas });
+      if (tabla === 'clientes' && (existente.saldo_total || 0) !== (row.saldo_total || 0)) {
+        cambiosSaldo.push({ id: existente.id, nombre: row.nombre, anterior: existente.saldo_total || 0, nuevo: row.saldo_total || 0 });
+      }
     } else {
       paraInsertar.push(row);
     }
@@ -1499,6 +1565,26 @@ async function importarEnTabla(tabla, filas, progEl, errEl, onProgress, opciones
       if (error) return { error: 'Error al insertar (' + tabla + '): ' + error.message };
     }
   }
+
+  if (cambiosSaldo.length) {
+    onProgress(`⏳ Registrando ${cambiosSaldo.length} cambios de saldo en el historial…`);
+    const { data: { user } } = await db.auth.getUser();
+    const autor = user?.email || 'Desconocido';
+    const entradas = cambiosSaldo.map(c => ({
+      cliente_id: c.id,
+      cliente_nombre: c.nombre,
+      estado_anterior: '—',
+      estado_nuevo: '—',
+      tipo: 'saldo',
+      detalle: `Saldo total: ${fmt(c.anterior)} → ${fmt(c.nuevo)}`,
+      autor,
+    }));
+    for (let i = 0; i < entradas.length; i += BATCH) {
+      const { error } = await db.from('historial_estados').insert(entradas.slice(i, i + BATCH));
+      if (error) { /* no abortar la importación por esto, solo avisar */ toast('Importación OK, pero falló el log de cambios de saldo: ' + error.message, 'error'); break; }
+    }
+  }
+
   return { actualizados: paraActualizar.length, nuevos: paraInsertar.length, saldados: idsParaBorrar.length };
 }
 
@@ -1593,7 +1679,6 @@ async function doImportMaestro() {
         const { error } = await db.from('clientes_usd').insert({
           codigo: row.codigo, nombre: row.nombre,
           saldo_anterior: 0, saldo_total: 0, saldo_post: 0,
-          estado: 'Pendiente'
         });
         if (error) { errEl.textContent = 'Error al insertar: ' + error.message; errEl.style.display = 'block'; progEl.style.display = 'none'; btn.disabled = false; return; }
         nuevos++;
