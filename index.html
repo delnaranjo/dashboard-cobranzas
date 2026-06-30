@@ -1176,7 +1176,7 @@ async function openUSDModal() {
 
 function renderUSDTable() {
   const search = (document.getElementById('usd-search').value || '').trim().toLowerCase();
-  const filtradas = usdData.filter(r => !search || r.nombre.toLowerCase().includes(search) || (r.codigo||'').toLowerCase().includes(search));
+  const filtradas = usdData.filter(r => (r.saldo_total || 0) !== 0 || (r.saldo_anterior || 0) !== 0).filter(r => !search || r.nombre.toLowerCase().includes(search) || (r.codigo||'').toLowerCase().includes(search));
   if (!filtradas.length) { document.getElementById('usd-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--texto-suave)">Sin resultados.</td></tr>'; return; }
   document.getElementById('usd-tbody').innerHTML = filtradas.map(r => `
     <tr>
