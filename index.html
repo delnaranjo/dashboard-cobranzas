@@ -366,14 +366,15 @@
 
 <!-- MODAL USD (vista oculta) -->
 <div class="modal-overlay" id="usd-modal">
-  <div class="modal" style="max-width:900px">
+  <div class="modal" style="max-width:950px">
     <h2>🔒 Clientes con saldo en dólares</h2>
     <p style="margin-bottom:14px">Vista restringida — no visible para el resto de los usuarios.</p>
-    <div class="table-wrap" style="max-height:420px;overflow-y:auto">
+    <input type="text" id="usd-search" placeholder="Buscar cliente o código…" style="width:100%;border:1px solid var(--gris-borde);border-radius:8px;padding:8px 12px;font-size:.85rem;margin-bottom:12px;outline:none" oninput="renderUSDTable()" />
+    <div class="table-wrap" style="max-height:380px;overflow-y:auto">
       <table>
         <thead><tr>
           <th>Código</th><th>Cliente</th><th>Vendedor</th>
-          <th class="num">Saldo Total (USD)</th><th>Estado</th>
+          <th class="num">Saldo Total (USD)</th><th>Estado</th><th>Nota</th>
         </tr></thead>
         <tbody id="usd-tbody"></tbody>
       </table>
@@ -1110,28 +1111,62 @@ const fmtUSD = v => {
   return 'US$ ' + new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2 }).format(v);
 };
 
+let usdData = [];
+
 async function openUSDModal() {
   if (!esUsuarioUSD) return;
   const modal = document.getElementById('usd-modal');
   modal.classList.add('open');
-  document.getElementById('usd-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--texto-suave)">Cargando…</td></tr>';
+  document.getElementById('usd-search').value = '';
+  document.getElementById('usd-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--texto-suave)">Cargando…</td></tr>';
   const { data, error } = await db.from('clientes_usd').select('*').order('saldo_total', { ascending: false });
-  if (error) { document.getElementById('usd-tbody').innerHTML = `<tr><td colspan="5" style="color:var(--naranja)">Error: ${error.message}</td></tr>`; return; }
-  if (!data.length) { document.getElementById('usd-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--texto-suave)">Sin clientes en dólares cargados.</td></tr>'; return; }
-  document.getElementById('usd-tbody').innerHTML = data.map(r => `
+  if (error) { document.getElementById('usd-tbody').innerHTML = `<tr><td colspan="6" style="color:var(--naranja)">Error: ${error.message}</td></tr>`; return; }
+  usdData = data || [];
+  renderUSDTable();
+}
+
+function renderUSDTable() {
+  const search = (document.getElementById('usd-search').value || '').trim().toLowerCase();
+  const filtradas = usdData.filter(r => !search || r.nombre.toLowerCase().includes(search) || (r.codigo||'').toLowerCase().includes(search));
+  if (!filtradas.length) { document.getElementById('usd-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--texto-suave)">Sin resultados.</td></tr>'; return; }
+  document.getElementById('usd-tbody').innerHTML = filtradas.map(r => `
     <tr>
       <td>${r.codigo || '—'}</td>
       <td><strong>${r.nombre}</strong></td>
       <td>${r.vendedor}</td>
       <td class="num"><strong>${fmtUSD(r.saldo_total)}</strong></td>
-      <td>${r.estado || 'Pendiente'}</td>
+      <td>
+        <select class="estado-select ${estadoClass(r.estado)}" onchange="updateEstadoUSD('${r.id}', this)">
+          <option value="" ${!r.estado?'selected':''}>Pendiente</option>
+          <option value="PAGADO" ${r.estado==='PAGADO'?'selected':''}>Pagado</option>
+          <option value="RECLAMADO" ${r.estado==='RECLAMADO'?'selected':''}>Reclamado</option>
+        </select>
+      </td>
+      <td>
+        <button class="btn-nota ${r.notas?'has-nota':''}" onclick="openNotaModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}', \`${(r.notas||'').replace(/`/g,'\\`')}\`, '${r.nota_autor||''}', '${r.nota_fecha||''}', 'clientes_usd')">
+          ${r.notas ? '📝 Ver' : '+ Nota'}
+        </button>
+      </td>
     </tr>`).join('');
 }
+
+async function updateEstadoUSD(id, sel) {
+  const nuevoEstado = sel.value;
+  sel.className = `estado-select ${estadoClass(nuevoEstado)}`;
+  const { error } = await db.from('clientes_usd').update({ estado: nuevoEstado, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { toast('Error al guardar estado: ' + error.message, 'error'); return; }
+  const r = usdData.find(r => r.id === id);
+  if (r) r.estado = nuevoEstado;
+}
+
 function closeUSDModal() { document.getElementById('usd-modal').classList.remove('open'); }
 
 /* ── MODAL NOTA ── */
-function openNotaModal(id, nombre, nota, autor, fecha) {
+let notaTabla = 'clientes';
+
+function openNotaModal(id, nombre, nota, autor, fecha, tabla) {
   notaClienteId = id;
+  notaTabla = tabla || 'clientes';
   document.getElementById('nota-cliente-nombre').textContent = nombre;
   document.getElementById('nota-textarea').value = nota || '';
   const metaEl = document.getElementById('nota-meta');
@@ -1146,13 +1181,21 @@ async function saveNota() {
   const nota = document.getElementById('nota-textarea').value;
   const { data: { user } } = await db.auth.getUser();
   const ahora = new Date().toISOString();
-  const { error } = await db.from('clientes').update({ notas: nota, nota_autor: user?.email || 'Desconocido', nota_fecha: ahora, updated_at: ahora }).eq('id', notaClienteId);
+  const { error } = await db.from(notaTabla).update({ notas: nota, nota_autor: user?.email || 'Desconocido', nota_fecha: ahora, updated_at: ahora }).eq('id', notaClienteId);
   if (error) { toast('Error al guardar nota: ' + error.message, 'error'); return; }
-  const r = allData.find(r => r.id === notaClienteId);
-  if (r) { r.notas = nota; r.nota_autor = user?.email || 'Desconocido'; r.nota_fecha = ahora; }
-  closeNotaModal();
-  toast('Nota guardada');
-  renderMainTable();
+  if (notaTabla === 'clientes_usd') {
+    const r = usdData.find(r => r.id === notaClienteId);
+    if (r) { r.notas = nota; r.nota_autor = user?.email || 'Desconocido'; r.nota_fecha = ahora; }
+    closeNotaModal();
+    toast('Nota guardada');
+    renderUSDTable();
+  } else {
+    const r = allData.find(r => r.id === notaClienteId);
+    if (r) { r.notas = nota; r.nota_autor = user?.email || 'Desconocido'; r.nota_fecha = ahora; }
+    closeNotaModal();
+    toast('Nota guardada');
+    renderMainTable();
+  }
 }
 
 /* ── IMPORT MODAL ── */
@@ -1198,7 +1241,7 @@ function readCSVFile(file) {
       errEl.style.display = 'block';
     }
   };
-  reader.readAsText(file, 'UTF-8');
+  reader.readAsText(file, 'windows-1252');
 }
 
 function parseCSV(text) {
