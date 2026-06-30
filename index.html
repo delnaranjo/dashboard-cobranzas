@@ -345,6 +345,17 @@
   </div>
 </div>
 
+<!-- MODAL HISTORIAL -->
+<div class="modal-overlay" id="historial-modal">
+  <div class="modal nota-modal">
+    <h2 id="historial-cliente-nombre">Historial</h2>
+    <div id="historial-lista" style="max-height:320px;overflow-y:auto;margin-bottom:12px"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeHistorialModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL IMPORTAR RECIBOS -->
 <div class="modal-overlay" id="import-recibos-modal">
   <div class="modal">
@@ -481,6 +492,56 @@ function toast(msg, type = 'ok') {
   setTimeout(() => el.remove(), 3500);
 }
 
+/* ── EXPORTAR CSV ── */
+function descargarCSV(filas, columnas, nombreArchivo) {
+  const sep = ';';
+  const header = columnas.map(c => c.label).join(sep);
+  const lines = filas.map(row => columnas.map(c => {
+    let v = c.get(row);
+    if (v == null) v = '';
+    v = String(v).replace(/"/g, '""');
+    if (v.includes(sep) || v.includes('"') || v.includes('\n')) v = `"${v}"`;
+    return v;
+  }).join(sep));
+  const csv = '﻿' + [header, ...lines].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombreArchivo;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportarClientesCSV() {
+  if (!filteredData.length) { toast('No hay datos para exportar', 'error'); return; }
+  descargarCSV(filteredData, [
+    { label: 'Código', get: r => r.codigo },
+    { label: 'Cliente', get: r => r.nombre },
+    { label: 'Vendedor', get: r => r.vendedor },
+    { label: 'Saldo Anterior', get: r => r.saldo_anterior },
+    { label: 'Mayo 2026', get: r => r.mayo_2026 },
+    { label: 'Junio 2026', get: r => r.junio_2026 },
+    { label: 'Saldo Post', get: r => r.saldo_post },
+    { label: 'Saldo Total', get: r => r.saldo_total },
+    { label: 'Estado', get: r => r.estado },
+    { label: 'Nota', get: r => r.notas },
+  ], `cuentas_por_cobrar_${new Date().toISOString().slice(0,10)}.csv`);
+  toast(`✅ ${filteredData.length} filas exportadas`);
+}
+
+function exportarRecibosCSV() {
+  if (!recibosFiltrados.length) { toast('No hay recibos para exportar', 'error'); return; }
+  descargarCSV(recibosFiltrados, [
+    { label: 'N° RC', get: r => r.numero },
+    { label: 'Fecha', get: r => fmtFecha(r.fecha) },
+    { label: 'Cliente', get: r => r.cliente },
+    { label: 'Vendedor', get: r => r.vendedor },
+    { label: 'Forma de pago', get: r => r.forma_pago },
+    { label: 'Importe', get: r => r.importe },
+  ], `recibos_${new Date().toISOString().slice(0,10)}.csv`);
+  toast(`✅ ${recibosFiltrados.length} recibos exportados`);
+}
+
 /* ── AUTENTICACIÓN ── */
 async function checkSession() {
   const { data: { session } } = await db.auth.getSession();
@@ -594,6 +655,7 @@ function renderDashboard() {
   dash.style.display = 'block';
   dash.innerHTML = `
     <div class="kpi-grid" id="kpi-grid"></div>
+    <div id="alertas-section"></div>
     <p class="section-title">Análisis por período</p>
     <div class="charts-row mb-4">
       <div class="card"><p class="section-title" style="border:none;margin-bottom:10px">Aging de deuda</p><canvas id="aging-chart"></canvas></div>
@@ -619,6 +681,7 @@ function renderDashboard() {
         <label>Buscar</label>
         <input type="text" id="filter-search" placeholder="Nombre o código…" style="min-width:160px" />
         <button class="btn-reset" onclick="resetFilters()">Limpiar</button>
+        <button class="btn-import" style="margin-left:0" onclick="exportarClientesCSV()">⬇ Exportar</button>
       </div>
       <p class="table-counter" id="table-counter"></p>
       <div class="table-wrap"><table>
@@ -636,12 +699,48 @@ function renderDashboard() {
     <div id="recibos-section"></div>`;
 
   renderKPIs();
+  renderAlertas();
   renderAgingChart();
   renderEstadoChart();
   renderTop10();
   populateVendedorFilter();
   applyFilters();
   renderRecibosSection();
+}
+
+/* ── ALERTAS AUTOMÁTICAS ── */
+function renderAlertas() {
+  const sec = document.getElementById('alertas-section');
+  if (!sec) return;
+  const HACE_15_DIAS = Date.now() - 15 * 24 * 60 * 60 * 1000;
+
+  const sinAtencion = allData.filter(r => {
+    if (r.saldo_anterior <= 0) return false;
+    if (r.estado === 'PAGADO' || r.estado === 'RECLAMADO') return false;
+    if (!r.nota_fecha) return true;
+    return new Date(r.nota_fecha).getTime() < HACE_15_DIAS;
+  }).sort((a, b) => b.saldo_anterior - a.saldo_anterior);
+
+  if (!sinAtencion.length) { sec.innerHTML = ''; return; }
+
+  const top5 = sinAtencion.slice(0, 5);
+  sec.innerHTML = `
+    <div class="card mb-4" style="border-left:4px solid var(--naranja)">
+      <p class="section-title" style="border:none;margin-bottom:10px;color:var(--naranja)">⚠ ${sinAtencion.length} clientes con deuda vencida sin atención reciente</p>
+      <p style="font-size:.82rem;color:var(--texto-suave);margin-bottom:12px">Tienen saldo vencido (Saldo Anterior), sin estado asignado y sin nota en los últimos 15 días.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Cliente</th><th>Vendedor</th><th class="num">Saldo Vencido</th><th>Última nota</th></tr></thead>
+        <tbody>
+          ${top5.map(r => `<tr>
+            <td><strong>${r.nombre}</strong></td>
+            <td>${r.vendedor}</td>
+            <td class="num">${fmt(r.saldo_anterior)}</td>
+            <td>${r.nota_fecha ? new Date(r.nota_fecha).toLocaleDateString('es-AR') : 'Sin contacto'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+      ${sinAtencion.length > 5 ? `<p style="font-size:.78rem;color:var(--texto-suave);margin-top:10px">Y ${sinAtencion.length - 5} más. Filtrá por "Sin estado" en la tabla de abajo para verlos todos.</p>` : ''}
+    </div>`;
 }
 
 /* ── KPIs ── */
@@ -816,6 +915,7 @@ function renderMainTable() {
         <button class="btn-nota ${r.notas?'has-nota':''}" onclick="openNotaModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}', \`${(r.notas||'').replace(/`/g,'\\`')}\`, '${r.nota_autor||''}', '${r.nota_fecha||''}')">
           ${r.notas ? '📝 Ver nota' : '+ Nota'}
         </button>
+        <button class="btn-nota" onclick="openHistorialModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}')">🕓</button>
       </td>
     </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--texto-suave)">Sin resultados.</td></tr>';
 
@@ -844,14 +944,41 @@ function goPage(p) { currentPage = p; renderMainTable(); }
 async function updateEstado(id, sel) {
   const nuevoEstado = sel.value;
   sel.className = `estado-select ${estadoClass(nuevoEstado)}`;
+  const r = allData.find(r => r.id === id);
+  const estadoAnterior = r ? r.estado : '';
   const { error } = await db.from('clientes').update({ estado: nuevoEstado, updated_at: new Date().toISOString() }).eq('id', id);
   if (error) {
     toast('Error al guardar estado: ' + error.message, 'error');
-  } else {
-    const r = allData.find(r => r.id === id);
-    if (r) r.estado = nuevoEstado;
+    return;
   }
+  if (r) r.estado = nuevoEstado;
+
+  const { data: { user } } = await db.auth.getUser();
+  await db.from('historial_estados').insert({
+    cliente_id: id,
+    cliente_nombre: r ? r.nombre : '',
+    estado_anterior: estadoAnterior || 'Pendiente',
+    estado_nuevo: nuevoEstado || 'Pendiente',
+    autor: user?.email || 'Desconocido',
+  });
 }
+
+/* ── HISTORIAL DE CAMBIOS ── */
+async function openHistorialModal(id, nombre) {
+  const modal = document.getElementById('historial-modal');
+  document.getElementById('historial-cliente-nombre').textContent = `Historial · ${nombre}`;
+  document.getElementById('historial-lista').innerHTML = '<p style="text-align:center;color:var(--texto-suave);padding:20px">Cargando…</p>';
+  modal.classList.add('open');
+  const { data, error } = await db.from('historial_estados').select('*').eq('cliente_id', id).order('fecha', { ascending: false });
+  if (error) { document.getElementById('historial-lista').innerHTML = `<p style="color:var(--naranja)">Error: ${error.message}</p>`; return; }
+  if (!data.length) { document.getElementById('historial-lista').innerHTML = '<p style="text-align:center;color:var(--texto-suave);padding:20px">Sin cambios registrados todavía.</p>'; return; }
+  document.getElementById('historial-lista').innerHTML = data.map(h => `
+    <div style="border-bottom:1px solid var(--gris-borde);padding:10px 0">
+      <p style="font-size:.85rem"><strong>${h.estado_anterior}</strong> → <strong>${h.estado_nuevo}</strong></p>
+      <p style="font-size:.76rem;color:var(--texto-suave)">${h.autor} — ${new Date(h.fecha).toLocaleString('es-AR')}</p>
+    </div>`).join('');
+}
+function closeHistorialModal() { document.getElementById('historial-modal').classList.remove('open'); }
 
 /* ── MODAL NOTA ── */
 function openNotaModal(id, nombre, nota, autor, fecha) {
@@ -1081,6 +1208,7 @@ let recibosData = [];
 let recibosFiltrados = [];
 let recibosChart = null;
 let formapagoChart = null;
+let evolucionChart = null;
 let recibosPage = 1;
 const RECIBOS_PAGE_SIZE = 25;
 let xlsxParsed = null;
@@ -1139,6 +1267,10 @@ function renderRecibosSection() {
       <div class="kpi-card k2"><span class="kpi-label">Cantidad de recibos</span><span class="kpi-value">${cantRecibos}</span><span class="kpi-sub">en el período</span></div>
       <div class="kpi-card"   ><span class="kpi-label">Promedio por recibo</span><span class="kpi-value">${fmt(promedio)}</span><span class="kpi-sub">importe promedio</span></div>
     </div>
+    <div class="card mb-4">
+      <p class="section-title" style="border:none;margin-bottom:10px">Evolución de cobros por mes</p>
+      <canvas id="recibos-evolucion-chart"></canvas>
+    </div>
     <div class="charts-row mb-4">
       <div class="card">
         <p class="section-title" style="border:none;margin-bottom:10px">Cobrado por vendedor</p>
@@ -1161,6 +1293,7 @@ function renderRecibosSection() {
         <label>Buscar</label>
         <input type="text" id="filter-recibos-search" placeholder="Cliente o N° RC…" style="min-width:160px" />
         <button class="btn-reset" onclick="resetRecibosFilters()">Limpiar</button>
+        <button class="btn-import" style="margin-left:0" onclick="exportarRecibosCSV()">⬇ Exportar</button>
       </div>
       <p class="table-counter" id="recibos-counter"></p>
       <div class="table-wrap"><table>
@@ -1175,6 +1308,40 @@ function renderRecibosSection() {
       </table></div>
       <div class="pagination" id="recibos-pagination"></div>
     </div>`;
+
+  // Gráfico evolución mensual
+  const porMes = {};
+  recibosData.forEach(r => {
+    if (!r.fecha) return;
+    const mes = r.fecha.slice(0, 7); // YYYY-MM
+    porMes[mes] = (porMes[mes] || 0) + (r.importe || 0);
+  });
+  const mesesOrden = Object.keys(porMes).sort();
+  const mesLabel = m => {
+    const [y, mm] = m.split('-');
+    const nombres = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return `${nombres[parseInt(mm,10)-1]} ${y}`;
+  };
+  if (evolucionChart) evolucionChart.destroy();
+  evolucionChart = new Chart(document.getElementById('recibos-evolucion-chart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: mesesOrden.map(mesLabel),
+      datasets: [{
+        data: mesesOrden.map(m => porMes[m]),
+        borderColor: '#2d6a4f', backgroundColor: 'rgba(82,183,136,.2)',
+        fill: true, tension: .3, pointBackgroundColor: '#1a4731', pointRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+      scales: {
+        y: { ticks: { callback: v => '$'+(v>=1000000?(v/1000000).toFixed(1)+'M':(v/1000).toFixed(0)+'k') }, grid: { color: '#eee' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
 
   // Gráfico vendedor
   if (recibosChart) recibosChart.destroy();
