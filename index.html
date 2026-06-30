@@ -1415,7 +1415,8 @@ function parseCSV(text) {
   return { ars: results, usd: resultsUSD };
 }
 
-async function importarEnTabla(tabla, filas, progEl, errEl, onProgress) {
+async function importarEnTabla(tabla, filas, progEl, errEl, onProgress, opciones) {
+  opciones = opciones || {};
   const { data: existentes, error: fetchErr } = await db.from(tabla).select('id, codigo, estado, notas');
   if (fetchErr) return { error: 'Error al leer datos existentes (' + tabla + '): ' + fetchErr.message };
 
@@ -1433,16 +1434,32 @@ async function importarEnTabla(tabla, filas, progEl, errEl, onProgress) {
     }
   });
 
-  const idsParaBorrar = existentes.filter(c => c.codigo && !codigosNuevos.has(c.codigo)).map(c => c.id);
+  const obsoletos = existentes.filter(c => c.codigo && !codigosNuevos.has(c.codigo));
   const BATCH = 500;
 
-  if (idsParaBorrar.length) {
-    onProgress(`⏳ Quitando ${idsParaBorrar.length} clientes saldados (${tabla})…`);
-    for (let i = 0; i < idsParaBorrar.length; i += BATCH) {
-      const { error } = await db.from(tabla).delete().in('id', idsParaBorrar.slice(i, i + BATCH));
+  if (opciones.conservarCodigos) {
+    // No borrar: poner saldo en cero pero mantener el código permanentemente registrado
+    if (obsoletos.length) {
+      onProgress(`⏳ Poniendo en $0 a ${obsoletos.length} clientes saldados (${tabla})…`);
+      for (let i = 0; i < obsoletos.length; i += BATCH) {
+        const lote = obsoletos.slice(i, i + BATCH);
+        for (const c of lote) {
+          const { error } = await db.from(tabla).update({
+            saldo_anterior: 0, mayo_2026: 0, junio_2026: 0, saldo_post: 0, saldo_total: 0,
+            updated_at: new Date().toISOString(),
+          }).eq('id', c.id);
+          if (error) return { error: 'Error al actualizar saldados (' + tabla + '): ' + error.message };
+        }
+      }
+    }
+  } else if (obsoletos.length) {
+    onProgress(`⏳ Quitando ${obsoletos.length} clientes saldados (${tabla})…`);
+    for (let i = 0; i < obsoletos.length; i += BATCH) {
+      const { error } = await db.from(tabla).delete().in('id', obsoletos.slice(i, i + BATCH).map(c => c.id));
       if (error) return { error: 'Error al limpiar (' + tabla + '): ' + error.message };
     }
   }
+  const idsParaBorrar = opciones.conservarCodigos ? [] : obsoletos;
   if (paraActualizar.length) {
     for (let i = 0; i < paraActualizar.length; i += BATCH) {
       onProgress(`⏳ Actualizando (${tabla})… ${Math.min(i + BATCH, paraActualizar.length)} / ${paraActualizar.length}`);
@@ -1476,7 +1493,7 @@ async function doImport() {
 
   let resUSD = { actualizados: 0, nuevos: 0, saldados: 0 };
   if (csvParsedUSD && csvParsedUSD.length) {
-    resUSD = await importarEnTabla('clientes_usd', csvParsedUSD, progEl, errEl, setProgress);
+    resUSD = await importarEnTabla('clientes_usd', csvParsedUSD, progEl, errEl, setProgress, { conservarCodigos: true });
     if (resUSD.error) { errEl.textContent = resUSD.error; errEl.style.display = 'block'; progEl.style.display = 'none'; btn.disabled = false; importando = false; return; }
   }
 
