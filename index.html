@@ -336,6 +336,7 @@
   <div class="modal nota-modal">
     <h2 id="nota-cliente-nombre">Nota</h2>
     <p>Agregá observaciones para este cliente. Todos los usuarios la verán en tiempo real.</p>
+    <p class="nota-meta" id="nota-meta" style="font-size:.78rem;color:var(--texto-suave);margin-bottom:8px"></p>
     <textarea id="nota-textarea" placeholder="Ej: Habló con María el 15/6, prometió pagar el lunes…"></textarea>
     <div class="modal-actions" style="margin-top:12px">
       <button class="btn-cancel" onclick="closeNotaModal()">Cancelar</button>
@@ -812,7 +813,7 @@ function renderMainTable() {
         </select>
       </td>
       <td>
-        <button class="btn-nota ${r.notas?'has-nota':''}" onclick="openNotaModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}', \`${(r.notas||'').replace(/`/g,'\\`')}\`)">
+        <button class="btn-nota ${r.notas?'has-nota':''}" onclick="openNotaModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}', \`${(r.notas||'').replace(/`/g,'\\`')}\`, '${r.nota_autor||''}', '${r.nota_fecha||''}')">
           ${r.notas ? '📝 Ver nota' : '+ Nota'}
         </button>
       </td>
@@ -853,10 +854,12 @@ async function updateEstado(id, sel) {
 }
 
 /* ── MODAL NOTA ── */
-function openNotaModal(id, nombre, nota) {
+function openNotaModal(id, nombre, nota, autor, fecha) {
   notaClienteId = id;
   document.getElementById('nota-cliente-nombre').textContent = nombre;
   document.getElementById('nota-textarea').value = nota || '';
+  const metaEl = document.getElementById('nota-meta');
+  metaEl.textContent = (autor && fecha) ? `Última edición: ${autor} — ${new Date(fecha).toLocaleString('es-AR')}` : '';
   document.getElementById('nota-modal').classList.add('open');
   setTimeout(() => document.getElementById('nota-textarea').focus(), 100);
 }
@@ -865,10 +868,12 @@ function closeNotaModal() { document.getElementById('nota-modal').classList.remo
 async function saveNota() {
   if (!notaClienteId) return;
   const nota = document.getElementById('nota-textarea').value;
-  const { error } = await db.from('clientes').update({ notas: nota, updated_at: new Date().toISOString() }).eq('id', notaClienteId);
+  const { data: { user } } = await db.auth.getUser();
+  const ahora = new Date().toISOString();
+  const { error } = await db.from('clientes').update({ notas: nota, nota_autor: user?.email || 'Desconocido', nota_fecha: ahora, updated_at: ahora }).eq('id', notaClienteId);
   if (error) { toast('Error al guardar nota: ' + error.message, 'error'); return; }
   const r = allData.find(r => r.id === notaClienteId);
-  if (r) r.notas = nota;
+  if (r) { r.notas = nota; r.nota_autor = user?.email || 'Desconocido'; r.nota_fecha = ahora; }
   closeNotaModal();
   toast('Nota guardada');
   renderMainTable();
