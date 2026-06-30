@@ -1605,6 +1605,7 @@ async function doImportMaestro() {
   btn.disabled = false;
   toast(`Maestro importado: ${nuevos} nuevos + ${actualizados} actualizados en clientes USD`, 'success');
   await loadData();
+  setTimeout(() => closeMaestroModal(), 1800);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
