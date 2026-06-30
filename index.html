@@ -1077,6 +1077,8 @@ let recibosPage = 1;
 const RECIBOS_PAGE_SIZE = 25;
 let xlsxParsed = null;
 let importandoRecibos = false;
+let recibosSortCol = 'fecha';
+let recibosSortDir = 'desc';
 
 /* ── CARGAR RECIBOS ── */
 async function loadRecibos() {
@@ -1155,8 +1157,11 @@ function renderRecibosSection() {
       <p class="table-counter" id="recibos-counter"></p>
       <div class="table-wrap"><table>
         <thead><tr>
-          <th>N° RC</th><th>Fecha</th><th>Cliente</th><th>Vendedor</th>
-          <th>Forma de pago</th><th class="num">Importe</th>
+          <th>N° RC</th>
+          <th class="sortable" onclick="toggleRecibosSort('fecha')" style="cursor:pointer">Fecha <span id="sort-icon-fecha"></span></th>
+          <th>Cliente</th><th>Vendedor</th>
+          <th>Forma de pago</th>
+          <th class="num sortable" onclick="toggleRecibosSort('importe')" style="cursor:pointer">Importe <span id="sort-icon-importe"></span></th>
         </tr></thead>
         <tbody id="recibos-tbody"></tbody>
       </table></div>
@@ -1203,6 +1208,7 @@ function renderRecibosSection() {
   document.getElementById('filter-recibos-fp').addEventListener('change', applyRecibosFilters);
   document.getElementById('filter-recibos-search').addEventListener('input', applyRecibosFilters);
   applyRecibosFilters();
+  updateSortIcons();
 }
 
 function applyRecibosFilters() {
@@ -1215,8 +1221,42 @@ function applyRecibosFilters() {
     if (search && !r.cliente.toLowerCase().includes(search) && !(r.numero||'').toLowerCase().includes(search)) return false;
     return true;
   });
+  sortRecibos();
   recibosPage = 1;
   renderRecibosTable();
+}
+
+function sortRecibos() {
+  const dir = recibosSortDir === 'asc' ? 1 : -1;
+  recibosFiltrados.sort((a, b) => {
+    let va = a[recibosSortCol], vb = b[recibosSortCol];
+    if (recibosSortCol === 'fecha') { va = va || ''; vb = vb || ''; }
+    else { va = va || 0; vb = vb || 0; }
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+}
+
+function toggleRecibosSort(col) {
+  if (recibosSortCol === col) {
+    recibosSortDir = recibosSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    recibosSortCol = col;
+    recibosSortDir = 'desc';
+  }
+  sortRecibos();
+  recibosPage = 1;
+  renderRecibosTable();
+  updateSortIcons();
+}
+
+function updateSortIcons() {
+  ['fecha', 'importe'].forEach(col => {
+    const el = document.getElementById('sort-icon-' + col);
+    if (!el) return;
+    el.textContent = recibosSortCol === col ? (recibosSortDir === 'asc' ? '▲' : '▼') : '';
+  });
 }
 
 function resetRecibosFilters() {
