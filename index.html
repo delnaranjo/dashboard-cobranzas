@@ -912,10 +912,12 @@ function renderMainTable() {
         </select>
       </td>
       <td>
-        <button class="btn-nota ${r.notas?'has-nota':''}" onclick="openNotaModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}', \`${(r.notas||'').replace(/`/g,'\\`')}\`, '${r.nota_autor||''}', '${r.nota_fecha||''}')">
-          ${r.notas ? '📝 Ver nota' : '+ Nota'}
-        </button>
-        <button class="btn-nota" onclick="openHistorialModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}')">🕓</button>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
+          <button class="btn-nota ${r.notas?'has-nota':''}" onclick="openNotaModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}', \`${(r.notas||'').replace(/`/g,'\\`')}\`, '${r.nota_autor||''}', '${r.nota_fecha||''}')">
+            ${r.notas ? '📝 Ver nota' : '+ Nota'}
+          </button>
+          <button class="btn-nota" style="flex-shrink:0" onclick="openHistorialModal('${r.id}', '${r.nombre.replace(/'/g,"\\'")}')">🕓</button>
+        </div>
       </td>
     </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--texto-suave)">Sin resultados.</td></tr>';
 
