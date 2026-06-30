@@ -516,7 +516,7 @@ const fmt = v => {
 
 const parseNum = s => {
   if (!s || !String(s).trim()) return 0;
-  const clean = String(s).replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.');
+  const clean = String(s).replace(/u\$s/gi, '').replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.');
   const n = parseFloat(clean);
   return isNaN(n) ? 0 : n;
 };
