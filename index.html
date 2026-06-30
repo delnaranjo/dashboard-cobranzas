@@ -334,6 +334,7 @@
     </div>
     <button class="btn-import" onclick="openImportModal()">⬆ Importar CSV</button>
     <button class="btn-import" style="background:var(--naranja);color:#fff" onclick="openImportRecibosModal()">⬆ Importar Recibos</button>
+    <button class="btn-import" style="background:#7b5ea7;color:#fff" onclick="openImportHistoricoModal()">⬆ Histórico</button>
     <button class="btn-import" id="btn-usd" style="display:none;background:#1a1a2e;color:#fff" onclick="openUSDModal()">🔒 USD</button>
     <button class="btn-import" id="btn-maestro" style="display:none;background:#4a4a6a;color:#fff" onclick="openMaestroModal()">📋 Maestro</button>
     <button class="btn-logout" onclick="doLogout()">Salir</button>
@@ -445,6 +446,27 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeImportRecibosModal()">Cancelar</button>
       <button class="btn-confirm" id="btn-confirm-recibos" disabled onclick="doImportRecibos()">Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTÓRICO DE RECIBOS -->
+<div class="modal-overlay" id="import-historico-modal">
+  <div class="modal">
+    <h2>Importar Histórico de Recibos</h2>
+    <p>Subí el CSV exportado desde Fierro con el rango de fechas que quieras cargar. Se agregan los recibos nuevos sin borrar los existentes (se detectan duplicados por número de RC).</p>
+    <div class="upload-zone" id="upload-zone-historico" onclick="document.getElementById('file-input-historico').click()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0-4 4m4-4 4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+      </svg>
+      <span id="file-name-historico">Arrastrá el archivo CSV o hacé clic para seleccionar</span>
+    </div>
+    <input type="file" id="file-input-historico" accept=".csv" />
+    <div class="import-progress" id="import-progress-historico" style="display:none">⏳ Procesando…</div>
+    <div class="import-error" id="import-error-historico" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeImportHistoricoModal()">Cancelar</button>
+      <button class="btn-confirm" id="btn-confirm-historico" disabled onclick="doImportHistorico()">Importar</button>
     </div>
   </div>
 </div>
@@ -912,14 +934,23 @@ function renderKPIs() {
   const totalDeuda = allData.reduce((s, r) => s + Math.max(r.saldo_total, 0), 0);
   const conDeuda   = allData.filter(r => r.saldo_total > 0).length;
   const reclamado  = allData.filter(r => r.estado === 'RECLAMADO').reduce((s, r) => s + r.saldo_total, 0);
-  const cobradoMayo  = recibosData.filter(r => r.fecha && r.fecha.startsWith('2026-05')).reduce((s, r) => s + (r.importe || 0), 0);
-  const cobradoJunio = recibosData.filter(r => r.fecha && r.fecha.startsWith('2026-06')).reduce((s, r) => s + (r.importe || 0), 0);
+  // Últimos 2 meses con recibos (dinámico)
+  const mesesConDatos = [...new Set(recibosData.filter(r=>r.fecha).map(r=>r.fecha.slice(0,7)))].sort();
+  const ultimosMeses  = mesesConDatos.slice(-2);
+  const mesNombre = m => { if (!m) return '—'; const [y,mm]=m.split('-'); return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+mm-1]+' '+y; };
+  const cobradoAnio = recibosData.reduce((s,r) => s + (r.importe||0), 0);
+  const kpiMeses = ultimosMeses.map(m => ({
+    label: `Cobrado en ${mesNombre(m)}`,
+    value: fmt(recibosData.filter(r=>r.fecha&&r.fecha.startsWith(m)).reduce((s,r)=>s+(r.importe||0),0)),
+    sub:   `${recibosData.filter(r=>r.fecha&&r.fecha.startsWith(m)).length} recibos`,
+    cls: 'k4',
+  }));
   document.getElementById('kpi-grid').innerHTML = [
-    { label: 'Total a cobrar',      value: fmt(totalDeuda), sub: `${conDeuda} clientes con deuda activa`, cls: '' },
-    { label: 'Clientes con deuda',  value: conDeuda,        sub: 'saldo total mayor a $10',               cls: 'k2' },
-    { label: 'Total reclamado',     value: fmt(reclamado),  sub: `${allData.filter(r=>r.estado==='RECLAMADO').length} clientes`, cls: 'k3' },
-    { label: 'Cobrado en Mayo',  value: fmt(cobradoMayo),  sub: `${recibosData.filter(r=>r.fecha&&r.fecha.startsWith('2026-05')).length} recibos`, cls: 'k4' },
-    { label: 'Cobrado en Junio', value: fmt(cobradoJunio), sub: `${recibosData.filter(r=>r.fecha&&r.fecha.startsWith('2026-06')).length} recibos`, cls: 'k4' },
+    { label: 'Total a cobrar',     value: fmt(totalDeuda), sub: `${conDeuda} clientes con deuda activa`, cls: '' },
+    { label: 'Clientes con deuda', value: conDeuda,        sub: 'saldo total mayor a $10',              cls: 'k2' },
+    { label: 'Total reclamado',    value: fmt(reclamado),  sub: `${allData.filter(r=>r.estado==='RECLAMADO').length} clientes`, cls: 'k3' },
+    { label: 'Cobrado (12 meses)', value: fmt(cobradoAnio), sub: `${recibosData.length} recibos en total`, cls: 'k4' },
+    ...kpiMeses,
   ].map(k => `<div class="kpi-card ${k.cls}"><span class="kpi-label">${k.label}</span><span class="kpi-value">${k.value}</span><span class="kpi-sub">${k.sub}</span></div>`).join('');
 }
 
@@ -1586,6 +1617,175 @@ async function importarEnTabla(tabla, filas, progEl, errEl, onProgress, opciones
   }
 
   return { actualizados: paraActualizar.length, nuevos: paraInsertar.length, saldados: idsParaBorrar.length };
+}
+
+// ── HISTÓRICO DE RECIBOS ─────────────────────────────────────────────────────
+let historicoParsed = null;
+
+function openImportHistoricoModal() {
+  historicoParsed = null;
+  document.getElementById('file-name-historico').textContent = 'Arrastrá el archivo CSV o hacé clic para seleccionar';
+  document.getElementById('btn-confirm-historico').disabled = true;
+  document.getElementById('import-progress-historico').style.display = 'none';
+  document.getElementById('import-error-historico').style.display = 'none';
+  document.getElementById('import-historico-modal').style.display = 'flex';
+}
+function closeImportHistoricoModal() {
+  document.getElementById('import-historico-modal').style.display = 'none';
+}
+
+document.getElementById('file-input-historico').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('file-name-historico').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const text = decodeTexto(ev.target.result);
+    historicoParsed = parseCSVHistorico(text);
+    const errEl = document.getElementById('import-error-historico');
+    if (!historicoParsed.length) {
+      errEl.textContent = 'No se encontraron recibos en el archivo.';
+      errEl.style.display = 'block';
+    } else {
+      errEl.style.display = 'none';
+    }
+    document.getElementById('btn-confirm-historico').disabled = historicoParsed.length === 0;
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+const uzh = document.getElementById('upload-zone-historico');
+uzh.addEventListener('dragover', e => { e.preventDefault(); uzh.classList.add('drag-over'); });
+uzh.addEventListener('dragleave', () => uzh.classList.remove('drag-over'));
+uzh.addEventListener('drop', e => {
+  e.preventDefault(); uzh.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  document.getElementById('file-name-historico').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    historicoParsed = parseCSVHistorico(decodeTexto(ev.target.result));
+    document.getElementById('btn-confirm-historico').disabled = historicoParsed.length === 0;
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+function parseCSVHistorico(text) {
+  const lineas = text.split(/\r?\n/).filter(l => l.trim());
+  const sep = ';';
+  const headers = lineas[0].split(sep).map(h => h.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, ''));
+  const ci = term => headers.findIndex(h => h.includes(term));
+
+  const iFecha    = ci('fecha');
+  const iDesc     = ci('descripci');   // "Descripción" → número RC
+  const iCliente  = ci('cliente');
+  const iCodigo   = ci('codigo');
+  const iImporte  = ci('importe contable') >= 0 ? ci('importe contable') : ci('contable');
+  const iFormaPago = ci('forma');
+  const iVendedor = ci('vendedor');
+
+  if (iFecha < 0 || iDesc < 0 || iImporte < 0) return [];
+
+  const rows = [];
+  for (let i = 1; i < lineas.length; i++) {
+    const cols = lineas[i].split(sep);
+    if (cols.length < 5) continue;
+
+    // Fecha DD/MM/YYYY → YYYY-MM-DD
+    const partesFecha = (cols[iFecha] || '').trim().split('/');
+    if (partesFecha.length !== 3) continue;
+    const fecha = `${partesFecha[2]}-${partesFecha[1].padStart(2,'0')}-${partesFecha[0].padStart(2,'0')}`;
+
+    // Número RC (e.g. "RC 9712" → "9712")
+    const numero = (cols[iDesc] || '').trim().replace(/^RC\s*/i, '');
+
+    // Importe: "$300.300,00" → number
+    const importeRaw = (cols[iImporte] || '').replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.');
+    const importe = parseFloat(importeRaw) || 0;
+
+    const cliente      = (cols[iCliente]  || '').trim();
+    const codigoRaw    = (cols[iCodigo]   || '').trim();
+    // código puede tener ceros a la izquierda o no; normalizamos igual que el sistema
+    const codigo_cliente = codigoRaw;
+    const forma_pago   = iFormaPago >= 0 ? (cols[iFormaPago] || '').trim() : '';
+    const vendedor     = iVendedor  >= 0 ? (cols[iVendedor]  || '').trim() : '';
+
+    if (!numero || importe <= 0) continue;
+    rows.push({ fecha, numero, cliente, codigo_cliente, importe, forma_pago, vendedor });
+  }
+  return rows;
+}
+
+async function doImportHistorico() {
+  if (!historicoParsed || !historicoParsed.length) return;
+  const progEl = document.getElementById('import-progress-historico');
+  const errEl  = document.getElementById('import-error-historico');
+  const btn    = document.getElementById('btn-confirm-historico');
+  progEl.style.display = 'block';
+  errEl.style.display  = 'none';
+  btn.disabled = true;
+
+  progEl.textContent = '⏳ Leyendo recibos existentes para detectar duplicados…';
+
+  // Leer números de RC ya existentes (para no duplicar)
+  const { data: existentesPublicos, error: e1 } = await db.from('recibos').select('numero');
+  const { data: existentesUSD,     error: e2 } = await db.from('recibos_usd').select('numero');
+  if (e1 || e2) {
+    errEl.textContent = 'Error al leer recibos existentes: ' + (e1||e2).message;
+    errEl.style.display = 'block'; progEl.style.display = 'none'; btn.disabled = false; return;
+  }
+  const numerosPublicos = new Set((existentesPublicos||[]).map(r => r.numero));
+  const numerosUSD      = new Set((existentesUSD||[]).map(r => r.numero));
+
+  // Obtener códigos USD para ruteo
+  const { data: clientesUSD, error: e3 } = await db.from('clientes_usd').select('codigo');
+  if (e3) {
+    errEl.textContent = 'Error al leer clientes USD: ' + e3.message;
+    errEl.style.display = 'block'; progEl.style.display = 'none'; btn.disabled = false; return;
+  }
+  const codigosUSD = new Set((clientesUSD||[]).filter(c => c.codigo).map(c => c.codigo));
+
+  // Separar en públicos y USD, filtrando ya existentes
+  const nuevosPublicos = historicoParsed
+    .filter(r => !codigosUSD.has(r.codigo_cliente) && !numerosPublicos.has(r.numero))
+    .map(({ forma_pago, ...resto }) => resto);
+
+  const nuevosUSD = historicoParsed
+    .filter(r => codigosUSD.has(r.codigo_cliente) && !numerosUSD.has(r.numero));
+
+  const total = nuevosPublicos.length + nuevosUSD.length;
+  const omitidos = historicoParsed.length - total;
+
+  const BATCH = 200;
+
+  const insertarLotes = async (tabla, filas, label) => {
+    for (let i = 0; i < filas.length; i += BATCH) {
+      progEl.textContent = `⏳ Insertando ${label}… ${Math.min(i+BATCH, filas.length)} / ${filas.length}`;
+      const { error } = await db.from(tabla).insert(filas.slice(i, i+BATCH));
+      if (error) return error.message;
+    }
+    return null;
+  };
+
+  if (nuevosPublicos.length) {
+    const err = await insertarLotes('recibos', nuevosPublicos, 'recibos');
+    if (err) { errEl.textContent = 'Error al insertar recibos: ' + err; errEl.style.display='block'; progEl.style.display='none'; btn.disabled=false; return; }
+  }
+  if (nuevosUSD.length) {
+    const err = await insertarLotes('recibos_usd', nuevosUSD, 'recibos USD');
+    if (err) { errEl.textContent = 'Error al insertar recibos USD: ' + err; errEl.style.display='block'; progEl.style.display='none'; btn.disabled=false; return; }
+  }
+
+  const msg = `✅ ${nuevosPublicos.length} recibos importados` +
+    (nuevosUSD.length ? `, ${nuevosUSD.length} USD` : '') +
+    (omitidos ? ` · ${omitidos} ya existían (omitidos)` : '');
+  progEl.textContent = msg;
+  btn.disabled = false;
+  toast(msg, 'success');
+  await loadRecibos();
+  renderDashboard();
+  setTimeout(() => closeImportHistoricoModal(), 2000);
 }
 
 // ── MAESTRO DE CLIENTES ──────────────────────────────────────────────────────
