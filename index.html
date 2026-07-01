@@ -1698,7 +1698,7 @@ function parseCSVHistorico(text) {
     const fecha = `${partesFecha[2]}-${partesFecha[1].padStart(2,'0')}-${partesFecha[0].padStart(2,'0')}`;
 
     // Número RC (e.g. "RC 9712" → "9712")
-    const numero = (cols[iDesc] || '').trim().replace(/^RC\s*/i, '');
+    const numero = (cols[iDesc] || '').trim();
 
     // Importe: "$300.300,00" → number
     const importeRaw = (cols[iImporte] || '').replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.');
